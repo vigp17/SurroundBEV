@@ -1,7 +1,8 @@
 """SurroundBEV: camera-only bird's-eye-view perception on nuScenes.
 
 Milestone 0 exposes configuration loading, nuScenes sample access, and a
-6-camera mosaic visualization.
+6-camera mosaic. Milestone 1 adds ground-truth 3D box projection into those
+cameras.
 """
 
 from pathlib import Path
