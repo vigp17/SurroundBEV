@@ -12,3 +12,13 @@ projection:
   minimum_depth: 1.0
   line_width: 3
   show_labels: false
+
+bev:
+  x_min: -30.0
+  x_max: 50.0
+  y_min: -30.0
+  y_max: 30.0
+  resolution: 0.25
+  layers:
+    - drivable_area
+  output_file: outputs/sample_bev_target.png

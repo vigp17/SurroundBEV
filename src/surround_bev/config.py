@@ -6,6 +6,7 @@ file; nothing in the Python code hardcodes a dataset path.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ from typing import Any
 import yaml
 
 from surround_bev import REPO_ROOT
+from surround_bev.bev import SUPPORTED_BEV_LAYERS, grid_shape
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,30 @@ class ProjectionConfig:
 
 
 @dataclass(frozen=True)
+class BevConfig:
+    """Ego-centric BEV target window.
+
+    Attributes:
+        x_min: Rear edge of the window, meters in the ego frame.
+        x_max: Forward edge, meters.
+        y_min: Right edge, meters. Negative ego-y is to the right.
+        y_max: Left edge, meters.
+        resolution: Cell size in meters per pixel.
+        layers: Map layers to rasterize. Milestone 2 accepts ``drivable_area``.
+        output_file: Where the visualization PNG is written. The raw binary
+            mask is written beside it with a ``.npy`` suffix.
+    """
+
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+    resolution: float
+    layers: tuple[str, ...]
+    output_file: Path
+
+
+@dataclass(frozen=True)
 class Config:
     """Typed view of ``configs/*.yaml``.
 
@@ -45,6 +71,7 @@ class Config:
         output_file: Where the unlabeled six-camera mosaic is written.
         boxes_mosaic: Where the box-projection mosaic is written.
         projection: Near plane, stroke width, and label toggle.
+        bev: Ego-centric BEV window, layers, and visualization path.
     """
 
     dataset_root: Path
@@ -53,6 +80,7 @@ class Config:
     output_file: Path
     boxes_mosaic: Path
     projection: ProjectionConfig
+    bev: BevConfig
 
 
 def resolve_path(path_str: str, base: Path = REPO_ROOT) -> Path:
@@ -123,6 +151,54 @@ def _parse_projection(raw: dict[str, Any]) -> ProjectionConfig:
     )
 
 
+def _as_float(value: Any, field: str) -> float:
+    """Return ``value`` as a finite float. Booleans are rejected."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"'{field}' must be a number, got {value!r}")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"'{field}' must be finite, got {number}")
+    return number
+
+
+def _parse_layers(value: Any) -> tuple[str, ...]:
+    """Validate ``bev.layers`` against the layers this milestone can rasterize."""
+    if not isinstance(value, list) or len(value) == 0:
+        raise ValueError(f"'bev.layers' must be a non-empty list, got {value!r}")
+    layers: list[str] = []
+    supported = ", ".join(sorted(SUPPORTED_BEV_LAYERS))
+    for item in value:
+        if not isinstance(item, str):
+            raise TypeError(f"'bev.layers' entries must be strings, got {item!r}")
+        if item not in SUPPORTED_BEV_LAYERS:
+            raise ValueError(f"unsupported map layer {item!r}; supported: {supported}")
+        layers.append(item)
+    return tuple(layers)
+
+
+def _parse_bev(raw: dict[str, Any], base: Path) -> BevConfig:
+    """Validate the ``bev`` section and the resulting grid dimensions."""
+    bev = _require(raw, "bev", "")
+    if not isinstance(bev, dict):
+        raise TypeError("'bev' section must be a mapping")
+    x_min = _as_float(_require(bev, "x_min", "bev"), "bev.x_min")
+    x_max = _as_float(_require(bev, "x_max", "bev"), "bev.x_max")
+    y_min = _as_float(_require(bev, "y_min", "bev"), "bev.y_min")
+    y_max = _as_float(_require(bev, "y_max", "bev"), "bev.y_max")
+    resolution = _as_float(_require(bev, "resolution", "bev"), "bev.resolution")
+    # grid_shape rejects a reversed extent and a resolution that does not divide it.
+    grid_shape(x_min, x_max, y_min, y_max, resolution)
+    return BevConfig(
+        x_min=x_min,
+        x_max=x_max,
+        y_min=y_min,
+        y_max=y_max,
+        resolution=resolution,
+        layers=_parse_layers(_require(bev, "layers", "bev")),
+        output_file=resolve_path(str(_require(bev, "output_file", "bev")), base),
+    )
+
+
 def parse_config(raw: dict[str, Any], base: Path = REPO_ROOT) -> Config:
     """Build a :class:`Config` from an already-parsed YAML mapping.
 
@@ -137,8 +213,8 @@ def parse_config(raw: dict[str, Any], base: Path = REPO_ROOT) -> Config:
         TypeError: If ``raw`` or one of its sections is not a mapping, or a
             numeric or boolean field has the wrong type.
         KeyError: If a required field is missing.
-        ValueError: If ``projection.minimum_depth`` or ``projection.line_width``
-            is not strictly positive.
+        ValueError: If a numeric setting is out of range, the BEV extent is
+            invalid, or a map layer is not supported.
     """
     if not isinstance(raw, dict):
         raise TypeError(f"Config must be a mapping, got {type(raw).__name__}")
@@ -161,6 +237,7 @@ def parse_config(raw: dict[str, Any], base: Path = REPO_ROOT) -> Config:
         output_file=resolve_path(str(_require(output, "file", "output")), base),
         boxes_mosaic=resolve_path(str(_require(output, "boxes_mosaic", "output")), base),
         projection=_parse_projection(raw),
+        bev=_parse_bev(raw, base),
     )
 
 

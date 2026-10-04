@@ -1,8 +1,8 @@
 """nuScenes data access.
 
-This module opens the dataset and returns images, global-frame annotations, and
-per-camera calibration. It does not transform coordinates or draw; see
-:mod:`surround_bev.geometry` and :mod:`surround_bev.draw`.
+This module opens the dataset and returns images, global-frame annotations,
+per-camera calibration, the sample's map location, and the reference ego pose.
+It does not transform coordinates or draw.
 """
 
 from __future__ import annotations
@@ -28,6 +28,13 @@ CAMERA_CHANNELS: tuple[str, ...] = (
     "CAM_BACK_RIGHT",
 )
 """The six surround-view camera channels in nuScenes."""
+
+BEV_REFERENCE_CHANNEL = "LIDAR_TOP"
+"""Sensor whose keyframe ego pose is the BEV origin.
+
+nuScenes sets the sample timestamp from the LIDAR_TOP keyframe. Camera ego
+poses are a few milliseconds away, so the map target uses LIDAR_TOP.
+"""
 
 
 class SampleTable(Protocol):
@@ -270,4 +277,80 @@ def load_camera_calibration(nusc: NuScenes, sample: dict[str, Any], channel: str
         ego_rotation=quaternion_to_matrix(ego_pose["rotation"]),
         camera_translation=_vec3(calibrated["translation"], f"{channel} camera translation"),
         camera_rotation=quaternion_to_matrix(calibrated["rotation"]),
+    )
+
+
+@dataclass(frozen=True)
+class ReferenceEgoPose:
+    """Planar ego pose used as the origin of a BEV target.
+
+    Attributes:
+        translation: Shape ``(3,)``, meters, global frame. Only x and y are
+            used to place the map. z is height and is not part of the mask.
+        yaw_rad: Heading of the ego x-axis in the global xy plane, radians.
+            Zero means ego forward points along global +x. Computed as
+            ``atan2(R[1, 0], R[0, 0])``, matching
+            ``nuscenes.eval.common.utils.quaternion_yaw``. Pitch and roll are
+            ignored so the mask stays on the map plane.
+        channel: Sensor channel that supplied the pose. Always
+            :data:`BEV_REFERENCE_CHANNEL`.
+        sample_data_token: Keyframe ``sample_data`` token.
+        ego_pose_token: ``ego_pose`` token linked from that keyframe.
+    """
+
+    translation: np.ndarray
+    yaw_rad: float
+    channel: str
+    sample_data_token: str
+    ego_pose_token: str
+
+
+def map_location(nusc: NuScenes, sample: dict[str, Any]) -> str:
+    """Return the semantic-map name for a sample.
+
+    The chain is ``sample → scene → log → location``. The location string is
+    whatever the log record stores. No map name is hardcoded.
+
+    Args:
+        nusc: Open ``NuScenes`` instance.
+        sample: A sample record from ``nusc.sample``.
+
+    Returns:
+        Map location, for example the log's ``location`` field.
+    """
+    scene = nusc.get("scene", sample["scene_token"])
+    log = nusc.get("log", scene["log_token"])
+    location = log["location"]
+    if not isinstance(location, str) or location == "":
+        raise ValueError(f"log {log['token']} has no map location")
+    return location
+
+
+def reference_ego_pose(nusc: NuScenes, sample: dict[str, Any]) -> ReferenceEgoPose:
+    """Return the LIDAR_TOP ego pose that anchors a BEV target.
+
+    Args:
+        nusc: Open ``NuScenes`` instance.
+        sample: A sample record from ``nusc.sample``.
+
+    Returns:
+        Pose of :data:`BEV_REFERENCE_CHANNEL` for this sample.
+
+    Raises:
+        KeyError: If the sample has no LIDAR_TOP keyframe.
+    """
+    if BEV_REFERENCE_CHANNEL not in sample["data"]:
+        raise KeyError(f"Sample {sample['token']} has no {BEV_REFERENCE_CHANNEL} data for the BEV ego pose")
+    sample_data_token = sample["data"][BEV_REFERENCE_CHANNEL]
+    sample_data = nusc.get("sample_data", sample_data_token)
+    pose = nusc.get("ego_pose", sample_data["ego_pose_token"])
+    rotation = quaternion_to_matrix(pose["rotation"])
+    forward = rotation @ np.array([1.0, 0.0, 0.0])
+    yaw_rad = float(np.arctan2(forward[1], forward[0]))
+    return ReferenceEgoPose(
+        translation=_vec3(pose["translation"], f"{BEV_REFERENCE_CHANNEL} ego translation"),
+        yaw_rad=yaw_rad,
+        channel=BEV_REFERENCE_CHANNEL,
+        sample_data_token=str(sample_data_token),
+        ego_pose_token=str(pose["token"]),
     )
