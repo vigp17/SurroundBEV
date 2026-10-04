@@ -1,0 +1,8 @@
+dataset:
+  root: /Users/vigneshpai/Desktop/datasets/v1.0-mini
+  version: v1.0-mini
+
+sample_index: 0
+
+output:
+  file: outputs/sample_mosaic.jpg
