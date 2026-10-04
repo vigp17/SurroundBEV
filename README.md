@@ -115,7 +115,7 @@ outputs/sample_mosaic.jpg
 
 ### Six-Camera Mosaic
 
-outputs/sample_mosaic.jpg
+!outputs/sample_mosaic.jpg
 
 ---
 
@@ -149,7 +149,7 @@ outputs/sample_boxes_mosaic.jpg
 
 ### Calibration-Aware 3D Projection
 
-outputs/sample_boxes_mosaic.jpg
+!outputs/sample_boxes_mosaic.jpg
 
 ---
 
