@@ -6,3 +6,9 @@ sample_index: 0
 
 output:
   file: outputs/sample_mosaic.jpg
+  boxes_mosaic: outputs/sample_boxes_mosaic.jpg
+
+projection:
+  minimum_depth: 1.0
+  line_width: 3
+  show_labels: false
