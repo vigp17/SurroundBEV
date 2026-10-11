@@ -332,6 +332,23 @@ def render_bev(mask: np.ndarray, grid: BevGrid) -> Image.Image:
     return image
 
 
+def draw_ego_marker(image: Image.Image, grid: BevGrid) -> Image.Image:
+    """Return a copy of ``image`` with the ego disc and forward arrow.
+
+    The marker matches :func:`render_bev`. ``image`` is not modified.
+
+    Args:
+        image: RGB image whose size is ``(grid columns, grid rows)``.
+        grid: Window that the image was sampled on.
+
+    Returns:
+        A copy of ``image`` with the marker painted on top.
+    """
+    canvas = image.copy()
+    _draw_ego_overlay(canvas, grid)
+    return canvas
+
+
 def _draw_ego_overlay(image: Image.Image, grid: BevGrid) -> None:
     """Paint the ego disc and forward arrow. Both are visualization-only."""
     origin_row, origin_col = ego_to_grid(0.0, 0.0, grid)

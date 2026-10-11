@@ -22,3 +22,13 @@ bev:
   layers:
     - drivable_area
   output_file: outputs/sample_bev_target.png
+
+ipm:
+  x_min: -30.0
+  x_max: 50.0
+  y_min: -30.0
+  y_max: 30.0
+  resolution: 0.25
+  front_camera: CAM_FRONT
+  front_output: outputs/ipm_front_camera.png
+  bev_output: outputs/ipm_bev.png

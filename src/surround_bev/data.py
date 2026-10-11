@@ -287,6 +287,9 @@ class ReferenceEgoPose:
     Attributes:
         translation: Shape ``(3,)``, meters, global frame. Only x and y are
             used to place the map. z is height and is not part of the mask.
+        rotation: Shape ``(3, 3)``. Maps reference-ego vectors into the global
+            frame. ``yaw_rad`` is the planar heading of the first column. The
+            BEV mask and the IPM grid use that heading.
         yaw_rad: Heading of the ego x-axis in the global xy plane, radians.
             Zero means ego forward points along global +x. Computed as
             ``atan2(R[1, 0], R[0, 0])``, matching
@@ -299,6 +302,7 @@ class ReferenceEgoPose:
     """
 
     translation: np.ndarray
+    rotation: np.ndarray
     yaw_rad: float
     channel: str
     sample_data_token: str
@@ -349,6 +353,7 @@ def reference_ego_pose(nusc: NuScenes, sample: dict[str, Any]) -> ReferenceEgoPo
     yaw_rad = float(np.arctan2(forward[1], forward[0]))
     return ReferenceEgoPose(
         translation=_vec3(pose["translation"], f"{BEV_REFERENCE_CHANNEL} ego translation"),
+        rotation=rotation,
         yaw_rad=yaw_rad,
         channel=BEV_REFERENCE_CHANNEL,
         sample_data_token=str(sample_data_token),

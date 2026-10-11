@@ -8,6 +8,7 @@ from surround_bev import REPO_ROOT
 from surround_bev.config import (
     BevConfig,
     Config,
+    IpmConfig,
     ProjectionConfig,
     load_config,
     parse_config,
@@ -25,6 +26,18 @@ _BEV_YAML = (
     "  output_file: out/bev.png\n"
 )
 
+_IPM_YAML = (
+    "ipm:\n"
+    "  x_min: -30\n"
+    "  x_max: 50\n"
+    "  y_min: -30\n"
+    "  y_max: 30\n"
+    "  resolution: 0.25\n"
+    "  front_camera: CAM_FRONT\n"
+    "  front_output: out/ipm_front.png\n"
+    "  bev_output: out/ipm_bev.png\n"
+)
+
 
 def _write(tmp_path: Path, text: str) -> Path:
     path = tmp_path / "cfg.yaml"
@@ -39,7 +52,8 @@ def test_load_config_parses_fields(tmp_path: Path) -> None:
         "sample_index: 3\n\n"
         "output:\n  file: out/mosaic.jpg\n  boxes_mosaic: out/boxes.jpg\n\n"
         "projection:\n  minimum_depth: 1.0\n  line_width: 3\n  show_labels: true\n"
-        + _BEV_YAML,
+        + _BEV_YAML
+        + _IPM_YAML,
     )
     cfg = load_config(cfg_path, base=tmp_path)
 
@@ -57,7 +71,7 @@ def test_load_config_expands_home_and_defaults_sample_index(tmp_path: Path) -> N
         tmp_path,
         "dataset:\n  root: ~/nuscenes\n  version: v1.0-mini\n"
         "output:\n  file: /tmp/x.jpg\n  boxes_mosaic: /tmp/boxes.jpg\n"
-        "projection:\n  minimum_depth: 1\n  line_width: 1\n  show_labels: true\n" + _BEV_YAML,
+        "projection:\n  minimum_depth: 1\n  line_width: 1\n  show_labels: true\n" + _BEV_YAML + _IPM_YAML,
     )
     cfg = load_config(cfg_path, base=tmp_path)
 
@@ -82,6 +96,16 @@ def test_repo_mini_config_is_valid() -> None:
         resolution=0.25,
         layers=("drivable_area",),
         output_file=REPO_ROOT / "outputs" / "sample_bev_target.png",
+    )
+    assert cfg.ipm == IpmConfig(
+        x_min=-30.0,
+        x_max=50.0,
+        y_min=-30.0,
+        y_max=30.0,
+        resolution=0.25,
+        front_camera="CAM_FRONT",
+        front_output=REPO_ROOT / "outputs" / "ipm_front_camera.png",
+        bev_output=REPO_ROOT / "outputs" / "ipm_bev.png",
     )
 
 
@@ -122,6 +146,16 @@ def _valid_raw(**overrides: object) -> dict[str, object]:
             "layers": ["drivable_area"],
             "output_file": "out/bev.png",
         },
+        "ipm": {
+            "x_min": -30.0,
+            "x_max": 50.0,
+            "y_min": -30.0,
+            "y_max": 30.0,
+            "resolution": 0.25,
+            "front_camera": "CAM_FRONT",
+            "front_output": "out/ipm_front.png",
+            "bev_output": "out/ipm_bev.png",
+        },
     }
     raw.update(overrides)
     return raw
@@ -131,7 +165,7 @@ def test_projection_config_loading(tmp_path: Path) -> None:
     text = (
         "dataset:\n  root: /data/nuscenes\n  version: v1.0-mini\n"
         "output:\n  file: a.jpg\n  boxes_mosaic: b.jpg\n"
-        "projection:\n  minimum_depth: 2.5\n  line_width: 4\n  show_labels: false\n" + _BEV_YAML
+        "projection:\n  minimum_depth: 2.5\n  line_width: 4\n  show_labels: false\n" + _BEV_YAML + _IPM_YAML
     )
     cfg = load_config(_write(tmp_path, text), base=tmp_path)
 
@@ -225,3 +259,26 @@ def test_bev_output_path_resolution(tmp_path: Path) -> None:
 def test_bev_config_rejects_invalid(bev: dict[str, object], exc: type[Exception], match: str) -> None:
     with pytest.raises(exc, match=match):
         parse_config(_valid_raw(bev=bev))
+
+
+def _ipm(**overrides: object) -> dict[str, object]:
+    ipm = dict(_valid_raw()["ipm"])  # type: ignore[arg-type]
+    ipm.update(overrides)
+    return ipm
+
+
+@pytest.mark.parametrize(
+    "ipm, exc, match",
+    [
+        (_ipm(resolution=0.3), ValueError, "invalid resolution"),
+        (_ipm(resolution=0), ValueError, "invalid resolution"),
+        (_ipm(resolution=-0.25), ValueError, "invalid resolution"),
+        (_ipm(x_min=10, x_max=0), ValueError, "invalid extent"),
+        (_ipm(front_camera="CAM_FRONT_EXTRA"), ValueError, "unsupported camera channel"),
+        (_ipm(front_camera="LIDAR_TOP"), ValueError, "unsupported camera channel"),
+        (_ipm(front_camera=1), TypeError, "front_camera"),
+    ],
+)
+def test_ipm_config_rejects_invalid(ipm: dict[str, object], exc: type[Exception], match: str) -> None:
+    with pytest.raises(exc, match=match):
+        parse_config(_valid_raw(ipm=ipm))

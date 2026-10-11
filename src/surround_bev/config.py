@@ -15,6 +15,7 @@ import yaml
 
 from surround_bev import REPO_ROOT
 from surround_bev.bev import SUPPORTED_BEV_LAYERS, grid_shape
+from surround_bev.data import CAMERA_CHANNELS
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,34 @@ class BevConfig:
 
 
 @dataclass(frozen=True)
+class IpmConfig:
+    """Ego-centric window for inverse perspective mapping.
+
+    The metric window uses the Milestone 2 convention: ego origin, +x forward,
+    +y left, image top forward, image left left.
+
+    Attributes:
+        x_min: Rear edge of the window, meters.
+        x_max: Forward edge, meters.
+        y_min: Right edge, meters.
+        y_max: Left edge, meters.
+        resolution: Cell size in meters per pixel.
+        front_camera: Channel written to the single-camera IPM image.
+        front_output: Path of that single-camera image.
+        bev_output: Path of the six-camera stitched image.
+    """
+
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+    resolution: float
+    front_camera: str
+    front_output: Path
+    bev_output: Path
+
+
+@dataclass(frozen=True)
 class Config:
     """Typed view of ``configs/*.yaml``.
 
@@ -72,6 +101,7 @@ class Config:
         boxes_mosaic: Where the box-projection mosaic is written.
         projection: Near plane, stroke width, and label toggle.
         bev: Ego-centric BEV window, layers, and visualization path.
+        ipm: Ego-centric window and paths for camera-to-ground projection.
     """
 
     dataset_root: Path
@@ -81,6 +111,7 @@ class Config:
     boxes_mosaic: Path
     projection: ProjectionConfig
     bev: BevConfig
+    ipm: IpmConfig
 
 
 def resolve_path(path_str: str, base: Path = REPO_ROOT) -> Path:
@@ -199,6 +230,34 @@ def _parse_bev(raw: dict[str, Any], base: Path) -> BevConfig:
     )
 
 
+def _parse_ipm(raw: dict[str, Any], base: Path) -> IpmConfig:
+    """Validate the ``ipm`` section and the resulting grid dimensions."""
+    ipm = _require(raw, "ipm", "")
+    if not isinstance(ipm, dict):
+        raise TypeError("'ipm' section must be a mapping")
+    x_min = _as_float(_require(ipm, "x_min", "ipm"), "ipm.x_min")
+    x_max = _as_float(_require(ipm, "x_max", "ipm"), "ipm.x_max")
+    y_min = _as_float(_require(ipm, "y_min", "ipm"), "ipm.y_min")
+    y_max = _as_float(_require(ipm, "y_max", "ipm"), "ipm.y_max")
+    resolution = _as_float(_require(ipm, "resolution", "ipm"), "ipm.resolution")
+    grid_shape(x_min, x_max, y_min, y_max, resolution)
+    front_camera = _require(ipm, "front_camera", "ipm")
+    if not isinstance(front_camera, str):
+        raise TypeError(f"'ipm.front_camera' must be a string, got {front_camera!r}")
+    if front_camera not in CAMERA_CHANNELS:
+        raise ValueError(f"unsupported camera channel {front_camera!r}")
+    return IpmConfig(
+        x_min=x_min,
+        x_max=x_max,
+        y_min=y_min,
+        y_max=y_max,
+        resolution=resolution,
+        front_camera=front_camera,
+        front_output=resolve_path(str(_require(ipm, "front_output", "ipm")), base),
+        bev_output=resolve_path(str(_require(ipm, "bev_output", "ipm")), base),
+    )
+
+
 def parse_config(raw: dict[str, Any], base: Path = REPO_ROOT) -> Config:
     """Build a :class:`Config` from an already-parsed YAML mapping.
 
@@ -213,8 +272,9 @@ def parse_config(raw: dict[str, Any], base: Path = REPO_ROOT) -> Config:
         TypeError: If ``raw`` or one of its sections is not a mapping, or a
             numeric or boolean field has the wrong type.
         KeyError: If a required field is missing.
-        ValueError: If a numeric setting is out of range, the BEV extent is
-            invalid, or a map layer is not supported.
+        ValueError: If a numeric setting is out of range, a BEV or IPM extent
+            is invalid, a map layer is not supported, or the IPM camera is not
+            one of the six surround cameras.
     """
     if not isinstance(raw, dict):
         raise TypeError(f"Config must be a mapping, got {type(raw).__name__}")
@@ -238,6 +298,7 @@ def parse_config(raw: dict[str, Any], base: Path = REPO_ROOT) -> Config:
         boxes_mosaic=resolve_path(str(_require(output, "boxes_mosaic", "output")), base),
         projection=_parse_projection(raw),
         bev=_parse_bev(raw, base),
+        ipm=_parse_ipm(raw, base),
     )
 
 

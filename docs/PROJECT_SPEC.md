@@ -80,193 +80,140 @@ outputs/sample_boxes_mosaic.jpg
 
 ## Current Milestone
 
-# Milestone 2: Ego-Centric BEV Target Generation
+## Current Milestone
+
+# Milestone 3: Geometry-Only Camera-to-BEV Projection
 
 ## Objective
 
-Generate an ego-centric semantic Bird's-Eye-View target from nuScenes
-map data for the configured sample.
+Project camera imagery into an ego-centric Bird's-Eye-View space
+using camera calibration and geometric transformations only.
 
-The initial target will represent the local drivable area around the
-ego vehicle.
+No neural networks should be used.
 
-## Deliverable
-
-```text
-outputs/sample_bev_target.png
-```
-
-## Coordinate Convention
-
-The BEV representation must use the following convention:
-
-- Origin: ego-vehicle position
-- Positive X: ego forward
-- Positive Y: ego left
-- Distance unit: meters
-- Image top: ego forward
-- Image bottom: ego backward
-- Image left: ego left
-- Image right: ego right
-- Array indexing: row first, column second
-
-Conceptually:
+## Deliverables
 
 ```text
-                    Ego forward
-                         +X
-                          ↑
-                          |
-             +Y left  ← Ego →  right -Y
-                          |
-                          ↓
-                       backward
+outputs/ipm_front_camera.png
+outputs/ipm_bev.png
 ```
 
-## Initial Semantic Target
+## Concept
 
-The first target contains one semantic layer:
-
-- `drivable_area`
-
-The raw target must be a binary mask containing only:
+Transform:
 
 ```text
-0 = not drivable
-1 = drivable
+Image Pixels
+      ↓
+Camera Rays
+      ↓
+Ground Plane Intersection
+      ↓
+Ego Coordinates
+      ↓
+BEV Grid
 ```
 
-## Configured BEV Extent
-
-The initial BEV extent will be configured as:
-
-```text
-X minimum: -30 meters
-X maximum:  50 meters
-Y minimum: -30 meters
-Y maximum:  30 meters
-Resolution: 0.25 meters per pixel
-```
-
-This represents:
-
-- 30 meters behind the ego vehicle
-- 50 meters ahead of the ego vehicle
-- 30 meters to the left
-- 30 meters to the right
-
-The expected dimensions are:
-
-```text
-Forward and backward dimension:
-(50 - (-30)) / 0.25 = 320 pixels
-
-Left and right dimension:
-(30 - (-30)) / 0.25 = 240 pixels
-```
-
-Expected mask shape:
-
-```text
-320 rows × 240 columns
-```
-
-The ego vehicle will not be vertically centered because the configured
-region contains more distance ahead of the vehicle than behind it.
+using calibration information provided by nuScenes.
 
 ## Requirements
 
 The implementation must:
 
-- Read the selected sample from configuration
-- Determine the scene associated with the sample
-- Determine the log associated with the scene
-- Determine the map location from the log
-- Avoid hardcoding a map location
-- Retrieve an ego pose associated with the configured sample
-- Document which sensor record provides the reference ego pose
-- Initialize the nuScenes map API using the discovered location
-- Extract the configured semantic map layers
-- Generate a local map region around the ego vehicle
-- Transform global map information into the ego coordinate frame
-- Rotate the local map so ego forward points toward image top
-- Map ego left toward image left
-- Preserve the configured physical extent
-- Preserve the configured metric resolution
-- Generate a binary drivable-area target
-- Keep the raw target separate from visualization overlays
-- Mark the ego position only in a visualization copy
-- Mark the ego-forward direction only in a visualization copy
-- Report map and geometry metadata
-- Preserve Milestone 0 behavior
-- Preserve Milestone 1 behavior
+- Reuse the existing configuration system.
+- Reuse the existing nuScenes dataset loading.
+- Reuse the existing ego-coordinate convention established in Milestone 2.
+- Use camera calibration from nuScenes.
+- Project image pixels onto the ground plane.
+- Generate an inverse-perspective-mapping (IPM) visualization.
+- Generate an ego-centric BEV representation.
+- Support:
+  - CAM_FRONT_LEFT
+  - CAM_FRONT
+  - CAM_FRONT_RIGHT
+  - CAM_BACK_LEFT
+  - CAM_BACK
+  - CAM_BACK_RIGHT
+- Create a stitched BEV visualization from all cameras.
+- Preserve Milestone 0 functionality.
+- Preserve Milestone 1 functionality.
+- Preserve Milestone 2 functionality.
 
-## Required Console Output
-
-The command should report:
-
-- Sample index
-- Sample token
-- Scene name
-- Map location
-- Ego global X coordinate
-- Ego global Y coordinate
-- Ego yaw in degrees
-- BEV metric extent
-- BEV resolution
-- Output mask shape
-- Output path
-
-## Required Command
+## Required Commands
 
 ```bash
-python scripts/generate_bev_target.py --config configs/mini.yaml
+python scripts/generate_ipm_bev.py --config configs/mini.yaml
 ```
 
-## Raw Target and Visualization
+## Required Outputs
 
-The implementation should distinguish between:
+### Single Camera Projection
 
-### Raw Training Target
-
-A binary array containing only `0` and `1`.
-
-The raw target must not contain:
-
-- Ego marker
-- Heading arrow
-- Text
-- Grid lines
-- Decorative colors
-
-### Visualization Output
-
-A human-readable PNG that may include:
-
-- Drivable-area coloring
-- Ego-vehicle origin marker
-- Ego-forward direction marker
-- Optional coordinate axes
-- Optional metadata text
-
-The visualization must be created from a copy of the raw target.
-
----
-
-## Configuration Requirements
-
-The `configs/mini.yaml` file must contain:
-
-```yaml
-bev:
-  x_min: -30.0
-  x_max: 50.0
-  y_min: -30.0
-  y_max: 30.0
-  resolution: 0.25
-  layers:
-    - drivable_area
-  output_file: outputs/sample_bev_target.png
+```text
+outputs/ipm_front_camera.png
 ```
 
-The Python implementation must not 
+### Multi-Camera Projection
+
+```text
+outputs/ipm_bev.png
+```
+
+## Coordinate Convention
+
+Use the same convention as Milestone 2:
+
+- Origin: ego vehicle
+- Positive X: ego forward
+- Positive Y: ego left
+- Units: meters
+- Image top: ego forward
+- Image left: ego left
+
+## Required Tests
+
+Implement tests for:
+
+- pixel-to-ground projection
+- ego-to-grid transformation
+- output dimensions
+- invalid calibration
+- invalid resolution
+- unsupported camera channel
+- camera ordering preservation
+
+## Non-Goals
+
+Do not implement:
+
+- Neural networks
+- PyTorch
+- BEV segmentation
+- Object detection
+- Training
+- TensorRT
+- Temporal fusion
+
+## Definition of Done
+
+Milestone 3 is complete when:
+
+1. A front-camera IPM image is generated.
+
+```text
+outputs/ipm_front_camera.png
+```
+
+2. A stitched multi-camera BEV projection is generated.
+
+```text
+outputs/ipm_bev.png
+```
+
+3. Existing Milestones 0–2 continue to work.
+
+4. All tests pass.
+
+5. Ruff passes.
+
+6. Camera-to-ground geometry is documented and validated.

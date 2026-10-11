@@ -3,6 +3,8 @@
 Milestone 0 exposes configuration loading, nuScenes sample access, and a
 6-camera mosaic. Milestone 1 adds ground-truth 3D box projection into those
 cameras. Milestone 2 adds an ego-centric drivable-area BEV target.
+Milestone 3 projects camera images onto that grid with inverse perspective
+mapping.
 """
 
 from pathlib import Path
