@@ -33,6 +33,8 @@ from surround_bev.ipm import (
 )
 from surround_bev.viz import save_image
 
+# The checkout root: the default --config location, and the base that relative
+# paths in the config resolve against regardless of how the package is installed.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -123,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns a process exit code."""
     args = parse_args(argv)
     try:
-        config = load_config(args.config)
+        config = load_config(args.config, base=REPO_ROOT)
         run(config)
     except PermissionError as exc:
         print(
