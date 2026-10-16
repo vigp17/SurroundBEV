@@ -399,6 +399,8 @@ SurroundBEV/
 ├── AGENTS.md
 ├── CLAUDE.md
 ├── README.md
+├── pyproject.toml
+├── requirements.txt
 └── .gitignore
 ```
 
@@ -423,7 +425,7 @@ The project currently uses:
 
 - Python 3.11
 - nuScenes development kit
-- NumPy
+- NumPy (1.26.x; 2.x is not verified yet)
 - Shapely (2.x) — polygon clipping and point-in-polygon tests
 - pyquaternion — nuScenes `(w, x, y, z)` quaternions
 - Pillow
@@ -433,6 +435,13 @@ The project currently uses:
 
 Shapely and pyquaternion arrive as nuScenes devkit dependencies, but the project
 imports both directly, so they are listed as first-class requirements.
+
+Dependencies are declared in two files that agree with each other:
+`pyproject.toml` holds the supported ranges (the runtime set, plus pytest and
+Ruff in a `dev` extra), and `requirements.txt` pins the exact versions this
+project has been verified against. NumPy is capped below 2.0 on purpose: the
+geometry, rasterization and IPM code has only ever been exercised against
+1.26.x.
 
 ---
 
@@ -458,10 +467,23 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 ```
 
-### 4. Install the current dependencies
+### 4. Install the project
+
+Install `surround_bev` in editable mode together with the development tools:
 
 ```bash
-pip install nuscenes-devkit shapely pyquaternion pillow pyyaml pytest ruff
+pip install -e ".[dev]"
+```
+
+The editable install is what makes `import surround_bev` resolve, so neither
+the scripts nor the test suite manipulate `sys.path`.
+
+To reproduce the exact verified versions instead of re-resolving the ranges in
+`pyproject.toml`:
+
+```bash
+pip install -r requirements.txt
+pip install -e . --no-deps
 ```
 
 ### 5. Verify the nuScenes development kit
@@ -666,7 +688,9 @@ and the camera projection to overlay pixel for pixel.
 
 ## Testing
 
-Run the complete automated test suite:
+The suite imports the installed package, so run the editable install from
+[Installation](#installation) first. Then run the complete automated test
+suite:
 
 ```bash
 python -m pytest -v

@@ -15,9 +15,6 @@ from pathlib import Path
 
 import numpy as np
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "src"))
-
 from surround_bev.bev import (
     BevGrid,
     ego_window_global_bounds,
@@ -34,6 +31,8 @@ from surround_bev.data import (
 )
 from surround_bev.maps import load_layer_polygons, load_nuscenes_map
 from surround_bev.viz import save_image
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

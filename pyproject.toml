@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "surround-bev"
+version = "0.4.0"
+description = "Camera-only bird's-eye-view perception on the nuScenes dataset"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { text = "MIT" }
+authors = [{ name = "Vignesh Pai" }]
+keywords = ["nuscenes", "bird's-eye-view", "autonomous-driving", "perception"]
+
+# Only the packages the project imports directly. Shapely and pyquaternion also
+# arrive as nuScenes devkit dependencies, but the code imports both itself.
+dependencies = [
+    "nuscenes-devkit>=1.1.11",
+    # numpy 2.x is untested here; requirements.txt pins the verified 1.26.4.
+    "numpy>=1.24,<2",
+    # bev.py uses the top-level shapely.contains_xy and shapely.make_valid,
+    # both added in Shapely 2.0.
+    "shapely>=2.0",
+    "pyquaternion>=0.9.9",
+    "pillow>=10.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+# Stated explicitly rather than relying on ruff's defaults, which can change
+# between releases.
+line-length = 120
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

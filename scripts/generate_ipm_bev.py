@@ -16,9 +16,6 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "src"))
-
 from surround_bev.bev import BevGrid, draw_ego_marker
 from surround_bev.config import Config, load_config
 from surround_bev.data import (
@@ -35,6 +32,8 @@ from surround_bev.ipm import (
     stitch_bev,
 )
 from surround_bev.viz import save_image
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

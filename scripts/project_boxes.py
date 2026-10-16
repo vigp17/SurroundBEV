@@ -15,9 +15,6 @@ from pathlib import Path
 
 from PIL import Image
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "src"))
-
 from surround_bev.config import Config, load_config
 from surround_bev.data import (
     CAMERA_CHANNELS,
@@ -36,6 +33,8 @@ from surround_bev.geometry import (
     transform_points_to_camera,
 )
 from surround_bev.viz import CAMERA_GRID, build_mosaic, save_image
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

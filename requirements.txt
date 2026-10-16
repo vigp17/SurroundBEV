@@ -1,0 +1,27 @@
+# Exact dependency versions verified against this project on Python 3.11.
+# Consistent with the ranges declared in pyproject.toml; this file is the
+# known-good resolution of those ranges.
+#
+# Reproducible install:
+#   pip install -r requirements.txt
+#   pip install -e . --no-deps
+#
+# To resolve the ranges freshly instead: pip install -e ".[dev]"
+
+# Runtime -- the packages the code imports directly.
+nuscenes-devkit==1.2.0
+numpy==1.26.4
+pillow==12.3.0
+pyquaternion==0.9.9
+PyYAML==6.0.3
+shapely==2.0.7
+
+# Development and test (the "dev" extra in pyproject.toml).
+pytest==9.1.1
+ruff==0.16.9
+
+# numpy is held below 2.0 on purpose: the geometry, rasterization and IPM code
+# has only ever been exercised against 1.26.x.
+#
+# matplotlib, opencv-python-headless, scikit-learn and the other transitive
+# packages are resolved by nuscenes-devkit 1.2.0, which pins Shapely~=2.0.3.
